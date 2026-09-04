@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI3022 Search Laboratory — Guarded Mansion</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a2f; --panel2:#0f1629; --line:#273451;
+    --text:#edf2ff; --muted:#9eabc7; --accent:#64d8cb; --warn:#ffcf66;
+    --danger:#ff6b7a; --good:#6ee7a2; --blue:#70a7ff; --purple:#b28cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(circle at 20% 0%,#172443 0,#0b1020 42%,#070b15 100%);
+       color:var(--text);font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .app{max-width:1500px;margin:auto;padding:18px}
+  header{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:14px}
+  h1{font-size:25px;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--muted)}
+  .badge{border:1px solid #31506d;background:#10213a;color:#a9ddff;padding:7px 10px;border-radius:999px;font-size:12px}
+  .layout{display:grid;grid-template-columns:minmax(480px,1.05fr) minmax(500px,1fr);gap:14px}
+  .panel{background:linear-gradient(180deg,rgba(18,26,47,.98),rgba(13,20,36,.98));border:1px solid var(--line);
+         border-radius:14px;box-shadow:0 10px 35px #0004;overflow:hidden}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:#b8c6e4;margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .pad{padding:14px}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  select,button,input[type=range]{width:100%}
+  select,button{background:#18233c;color:var(--text);border:1px solid #34435f;border-radius:9px;padding:9px 10px}
+  button{cursor:pointer;font-weight:650}
+  button:hover{border-color:#60789e;background:#1c2a47}
+  button.primary{background:#164b53;border-color:#287f88}
+  button.primary:hover{background:#1b5c64}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .controls .wide{grid-column:1/-1}
+  .speed{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
+  .metric{background:#0c1425;border:1px solid #24324c;border-radius:9px;padding:8px}
+  .metric .v{font-size:18px;font-weight:800}.metric .k{font-size:10px;color:var(--muted);text-transform:uppercase}
+  .gridwrap{padding:14px}
+  .grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;aspect-ratio:1}
+  .cell{position:relative;min-width:0;border:1px solid #293650;background:#151f34;border-radius:6px;display:flex;
+        align-items:center;justify-content:center;font-size:18px;font-weight:800;transition:.12s}
+  .cell.locked{background:#242a35;color:#777f90}.cell.free{background:#162b2b;color:#74c9b9}
+  .cell.exit{background:#183d2d;color:#79f0a8}.cell.start{box-shadow:inset 0 0 0 2px #70a7ff}
+  .cell.current{outline:3px solid var(--accent);z-index:2}
+  .cell.expanded{box-shadow:inset 0 0 0 2px var(--warn)}
+  .cell.child{background:#1d2947;box-shadow:inset 0 0 0 2px var(--blue)}
+  .cell.path{background:#173a38;box-shadow:inset 0 0 0 2px var(--good)}
+  .cell .coord{position:absolute;top:2px;left:4px;font-size:7px;color:#687894;font-weight:500}
+  .cell .person{font-size:19px}.cell .guard{font-size:13px;color:#ff8290;position:absolute;right:3px;bottom:2px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:11px;margin-top:9px}
+  .legend span{display:inline-flex;align-items:center;gap:4px}.dot{width:10px;height:10px;border-radius:3px;border:1px solid #45536c}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .data{background:#0a1220;border:1px solid #22314a;border-radius:10px;min-height:150px;max-height:300px;overflow:auto}
+  .datahead{padding:8px 10px;border-bottom:1px solid #22314a;color:#a9b9d8;font-weight:700;font-size:12px}
+  .items{padding:7px}
+  .item{display:flex;justify-content:space-between;gap:8px;padding:6px 7px;border-radius:7px;margin-bottom:3px;background:#111a2d;border:1px solid #1f2c45;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+  .item.front{border-color:#58cfd0;background:#12343a}.item.top{border-color:#b28cff;background:#241d3a}
+  .item .h{color:#ffdb77}
+  .log{background:#090f1b;border:1px solid #22314a;border-radius:10px;padding:10px;min-height:190px;max-height:360px;overflow:auto}
+  .logline{padding:6px 7px;border-left:3px solid #32445f;margin-bottom:5px;background:#0e1728;border-radius:4px}
+  .logline.ok{border-left-color:var(--good)}.logline.bad{border-left-color:var(--danger)}.logline.info{border-left-color:var(--blue)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .state{font-weight:800;color:#fff}.small{font-size:11px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#151f34;border:1px solid #30405e;padding:5px 7px;border-radius:7px}
+  .chip.accept{border-color:#2f8e69}.chip.reject{border-color:#8b4250}.chip.gen{border-color:#416aa1}
+  .explain{white-space:normal}
+  .section{margin-top:10px}
+  .goal{padding:10px;border-radius:9px;background:#101a2c;border:1px solid #2b3a56}
+  .goal.true{border-color:#2c9c6d;background:#102b23;color:#a7f3c9}.goal.false{color:#c6d0e5}
+  .final{border:1px solid #2b9c70;background:#10271f;border-radius:11px;padding:12px;margin-top:10px}
+  .final h3{margin:0 0 6px;color:#9ff0c2}
+  .pathrow{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font:11px ui-monospace,monospace}
+  .arrow{color:#65d8c9}
+  .note{color:#91a1c0;font-size:11px;margin-top:8px}
+  @media(max-width:1050px){.layout{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div>
+    <h1>AI3022 Search Laboratory</h1>
+    <div class="sub">Deterministic Escape from a Dynamically Guarded Mansion · live search execution</div>
+  </div>
+  <div class="badge">SOURCE-FAITHFUL · STATE = (r,c,t)</div>
+</header>
+
+<div class="layout">
+  <section class="panel">
+    <h2>Mansion State Space</h2>
+    <div class="gridwrap">
+      <div id="grid" class="grid"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#242a35"></i> locked φ</span>
+        <span><i class="dot" style="background:#162b2b"></i> guard-free #</span>
+        <span><i class="dot" style="background:#183d2d"></i> exit E</span>
+        <span><i class="dot" style="background:#151f34;border-color:#64d8cb"></i> current</span>
+        <span><i class="dot" style="background:#1d2947;border-color:#70a7ff"></i> generated child</span>
+        <span>🔴 guard</span>
+      </div>
+      <div class="note">Choose any legal starting room (1–10,10). The simulator validates the source's start constraints at t=0 before search begins. Guards are computed from the source patrol lists at the displayed state's time. No solution path is stored or used by the simulator.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <h2>Search Control</h2>
+      <div class="pad">
+        <div class="controls">
+          <div class="wide" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <label class="small" style="display:flex;flex-direction:column;gap:4px">Start row
+              <input id="startRow" type="number" min="1" max="10" value="1" style="background:#18233c;color:var(--text);border:1px solid #34435f;border-radius:9px;padding:9px">
+            </label>
+            <label class="small" style="display:flex;flex-direction:column;gap:4px">Start column
+              <input id="startCol" type="number" min="1" max="10" value="1" style="background:#18233c;color:var(--text);border:1px solid #34435f;border-radius:9px;padding:9px">
+            </label>
+          </div>
+          <div id="startStatus" class="wide small"></div>
+          <select id="algo">
+            <option value="BFS">BFS — FIFO Queue</option>
+            <option value="DFS">DFS — LIFO Stack (MAX_DEPTH = 30)</option>
+            <option value="BEST">Best First Search — lowest h</option>
+          </select>
+          <button id="init" class="primary">Initialize Search</button>
+          <button id="step">Next Step</button>
+          <button id="play">▶ Play</button>
+          <button id="reset">Reset</button>
+          <div class="speed wide">
+            <span>Speed</span><input id="speed" type="range" min="1" max="10" value="5"><span id="speedLabel">5</span>
+          </div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="v" id="mExpanded">0</div><div class="k">Expanded</div></div>
+          <div class="metric"><div class="v" id="mOpen">0</div><div class="k">|OPEN|</div></div>
+          <div class="metric"><div class="v" id="mClosed">0</div><div class="k">|CLOSED|</div></div>
+          <div class="metric"><div class="v" id="mMax">1</div><div class="k">Max OPEN</div></div>
+        </div>
+        <div class="section goal" id="goal">GoalTest: —</div>
+        <div class="section">
+          <div class="small">Current state</div>
+          <div class="mono state" id="current">(1,1,0)</div>
+          <div class="small">Guard 1: <span id="g1">—</span> · Guard 2: <span id="g2">—</span> · time t: <span id="time">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel section">
+      <h2>Search Data</h2>
+      <div class="pad">
+        <div class="two">
+          <div class="data"><div class="datahead" id="openTitle">QUEUE (front → rear)</div><div id="open" class="items"></div></div>
+          <div class="data"><div class="datahead">CLOSED</div><div id="closed" class="items"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel section">
+      <h2>Step Explanation</h2>
+      <div class="pad">
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+
+    <div id="finalPanel"></div>
+  </section>
+</div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   1. PROBLEM DEFINITION — copied from the executable notebook
+   ============================================================ */
+const n = 10;
+const locked = new Set([
+  "1,4","1,7","2,2","2,6","3,6","4,2","4,9","5,4",
+  "6,6","7,3","7,8","8,7","9,2","10,4","10,7"
+]);
+const guard_free = new Set(["3,3","5,6","7,5","8,4","9,6"]);
+const exit_pos = [10,10];
+const DEFAULT_START = [1,1];
+let selectedStart = DEFAULT_START.slice();
+
+const patrol1 = [
+ [1,2],[1,3],[2,3],[2,4],[3,4],[4,4],[4,5],[5,5],[5,3],
+ [5,2],[6,2],[6,3],[6,4],[6,5],[4,5],[3,5],[2,5]
+];
+const patrol2 = [
+ [2,8],[3,8],[4,8],[5,8],[6,8],[6,9],[7,9],[8,9],[8,8],
+ [9,8],[10,8],[10,9],[9,9],[9,10],[8,10],[7,10],[6,10],
+ [5,10],[4,10],[3,10],[2,10],[2,9]
+];
+
+const ACTIONS = {
+  UP:[-1,0], DOWN:[1,0], LEFT:[0,-1], RIGHT:[0,1], WAIT:[0,0]
+};
+const ACTION_ORDER = ["RIGHT","DOWN","LEFT","UP","WAIT"];
+const MAX_DEPTH = 30;
+
+/* ============================================================
+   2. STATE / ENVIRONMENT FUNCTIONS — source-faithful
+   ============================================================ */
+function key(s){ return s[0]+","+s[1]+","+s[2]; }
+function rcKey(r,c){ return r+","+c; }
+function stateText(s){ return `(${s[0]},${s[1]},${s[2]})`; }
+function guard_pos(patrol,t){ return patrol[t % patrol.length]; }
+function in_bounds(x,y){ return 1 <= x && x <= n && 1 <= y && y <= n; }
+
+function evaluate_move(state, action){
+  const [x,y,t] = state;
+  const [dx,dy] = ACTIONS[action];
+  const nx=x+dx, ny=y+dy;
+  if(!in_bounds(nx,ny)) return null;
+  if(locked.has(rcKey(nx,ny))) return null;
+
+  const t2=t+1;
+  const g1_now=guard_pos(patrol1,t), g1_next=guard_pos(patrol1,t2);
+  const g2_now=guard_pos(patrol2,t), g2_next=guard_pos(patrol2,t2);
+
+  if((nx===g1_next[0] && ny===g1_next[1]) || (nx===g2_next[0] && ny===g2_next[1])) return null;
+  if((nx===g1_now[0] && ny===g1_now[1]) && g1_next[0]===x && g1_next[1]===y) return null;
+  if((nx===g2_now[0] && ny===g2_now[1]) && g2_next[0]===x && g2_next[1]===y) return null;
+
+  return [nx,ny,t2];
+}
+
+function MoveGen(state){
+  const successors=[];
+  for(const a of ACTION_ORDER){
+    const s2=evaluate_move(state,a);
+    if(s2!==null) successors.push(s2);
+  }
+  return successors;
+}
+function GoalTest(state){ return state[0]===exit_pos[0] && state[1]===exit_pos[1]; }
+
+/* ============================================================
+   3. SOURCE HELPERS — same semantics
+   ============================================================ */
+function OccursIn(node,nodePairs){
+  for(const pair of nodePairs) if(key(pair.node)===key(node)) return true;
+  return false;
+}
+function RemoveSeen(nodeList,OPEN,CLOSED){
+  if(!nodeList.length) return [];
+  const node=nodeList[0];
+  if(OccursIn(node,OPEN) || OccursIn(node,CLOSED))
+    return RemoveSeen(nodeList.slice(1),OPEN,CLOSED);
+  return [node].concat(RemoveSeen(nodeList.slice(1),OPEN,CLOSED));
+}
+function MakePairs(nodeList,parent){
+  return nodeList.map(node=>({node:node,parent:parent}));
+}
+function h(state){
+  return Math.abs(state[0]-exit_pos[0]) + Math.abs(state[1]-exit_pos[1]);
+}
+function MakePairsH(nodeList,parent){
+  return nodeList.map(node=>({node:node,parent:parent,h:h(node)}));
+}
+function sortH(pairs){ return pairs.slice().sort((a,b)=>a.h-b.h); }
+function mergeH(l1,l2){
+  const result=[]; let i=0,j=0;
+  while(i<l1.length && j<l2.length){
+    if(l1[i].h <= l2[j].h) result.push(l1[i++]);
+    else result.push(l2[j++]);
+  }
+  while(i<l1.length) result.push(l1[i++]);
+  while(j<l2.length) result.push(l2[j++]);
+  return result;
+}
+function FindLink(node,CLOSED){
+  for(const pair of CLOSED) if(key(pair.node)===key(node)) return pair;
+  return null;
+}
+function ReconstructPath(nodePair,CLOSED){
+  const path=[nodePair.node];
+  let parent=nodePair.parent;
+  while(parent!==null){
+    path.unshift(parent);
+    const link=FindLink(parent,CLOSED);
+    parent=link!==null ? link.parent : null;
+  }
+  return path;
+}
+function children_or_cutoff(N){
+  if(N[2] >= MAX_DEPTH) return [];
+  return MoveGen(N);
+}
+
+/* ============================================================
+   4. LIVE SEARCH ENGINE
+   One click = one while-loop iteration of the selected source
+   algorithm: select head -> GoalTest -> if false CLOSED++ ->
+   MoveGen/cutoff -> RemoveSeen -> MakePairs -> OPEN update.
+   ============================================================ */
+let sim=null;
+let timer=null;
+
+function makeSim(algo, startPos){
+  const S=[startPos[0],startPos[1],0];
+  let open;
+  if(algo==="BEST") open=[{node:S,parent:null,h:h(S)}];
+  else open=[{node:S,parent:null}];
+  return {
+    algo, open, closed:[], expanded:0, maxOpen:1,
+    current:S, goal:null, running:false, done:false,
+    lastChildren:[], lastAccepted:[], lastRejected:[], lastActions:[],
+    expandedState:null, path:null
+  };
+}
+
+function stepOnce(){
+  if(!sim || sim.done || !sim.open.length) return;
+  // Exact source ordering: update max_open at top of while-loop.
+  sim.maxOpen=Math.max(sim.maxOpen,sim.open.length);
+
+  const nodePair=sim.open[0];
+  const N=nodePair.node;
+  sim.current=N;
+  sim.expandedState=null;
+  sim.lastChildren=[]; sim.lastAccepted=[]; sim.lastRejected=[]; sim.lastActions=[];
+  sim.goal=GoalTest(N);
+
+  if(sim.goal){
+    sim.done=true; sim.running=false;
+    sim.path=ReconstructPath(nodePair,sim.closed);
+    logGoal(N);
+    render();
+    return;
+  }
+
+  // CLOSED = cons(nodePair,CLOSED); expanded += 1
+  sim.closed.unshift(nodePair);
+  sim.expanded += 1;
+  sim.expandedState=N;
+
+  // children_or_cutoff(N)
+  const generated=[];
+  if(N[2] >= MAX_DEPTH){
+    // Source returns [] here. There is no MoveGen call at cutoff.
+    sim.lastActions=ACTIONS_ORDER_FOR_LOG(N,false);
+  }else{
+    for(const action of ACTION_ORDER){
+      const child=evaluate_move(N,action);
+      if(child!==null) generated.push({action,child});
+      sim.lastActions.push({action,child});
+    }
+  }
+  sim.lastChildren=generated.map(x=>x.child);
+
+  // Source RemoveSeen receives only the list of child states, not action labels.
+  const candidateStates=generated.map(x=>x.child);
+  const acceptedStates=RemoveSeen(candidateStates,sim.open,sim.closed);
+  const acceptedKeys=new Set(acceptedStates.map(key));
+  sim.lastAccepted=acceptedStates;
+
+  // For UI explanation, classify each generated state exactly by the result of RemoveSeen.
+  sim.lastRejected=generated.filter(x=>!acceptedKeys.has(key(x.child))).map(x=>x.child);
+
+  // Build pairs in generated/action order for accepted nodes.
+  const newPairs=[];
+  for(const item of generated){
+    if(acceptedKeys.has(key(item.child))){
+      if(sim.algo==="BEST") newPairs.push({node:item.child,parent:N,h:h(item.child)});
+      else newPairs.push({node:item.child,parent:N});
+    }
+  }
+
+  // Exact OPEN update:
+  if(sim.algo==="DFS"){
+    sim.open=newPairs.concat(sim.open.slice(1));
+  }else if(sim.algo==="BFS"){
+    sim.open=sim.open.slice(1).concat(newPairs);
+  }else{
+    sim.open=mergeH(sortH(newPairs),sim.open.slice(1));
+  }
+
+  render();
+}
+
+function ACTIONS_ORDER_FOR_LOG(N, cutoff){
+  if(cutoff) return ACTION_ORDER.map(action=>({action,child:null}));
+  return ACTION_ORDER.map(action=>({action,child:evaluate_move(N,action)}));
+}
+
+function logGoal(N){
+  addLog(`<b>Selected from OPEN:</b> <span class="state">${stateText(N)}</span>`, "info");
+  addLog(`<b>GoalTest:</b> <span style="color:#9ff0c2">True</span> — the search stops before expanding this node.`, "ok");
+  addLog(`<b>Final path reconstruction:</b> now performed from the discovered parent links in CLOSED.`, "ok");
+}
+
+function playToggle(){
+  if(!sim) return;
+  if(sim.done) return;
+  sim.running=!sim.running;
+  if(sim.running){
+    document.getElementById("play").textContent="⏸ Pause";
+    clearTimeout(timer);
+    const run=()=>{
+      if(!sim || !sim.running || sim.done){ timer=null; return; }
+      stepOnce();
+      if(sim && sim.running && !sim.done){
+        const delay=Math.max(80,800-(Number(document.getElementById("speed").value)*70));
+        timer=setTimeout(run,delay);
+      }
+    };
+    run();
+  }else{
+    document.getElementById("play").textContent="▶ Play";
+    clearTimeout(timer); timer=null;
+  }
+}
+
+function validateStart(){
+  const r=Number(document.getElementById("startRow").value);
+  const c=Number(document.getElementById("startCol").value);
+  const msg=document.getElementById("startStatus");
+
+  if(!Number.isInteger(r)||!Number.isInteger(c)||!in_bounds(r,c)){
+    msg.textContent="Invalid start: row/column must be integers from 1 to 10.";
+    msg.style.color="#ff8d9a"; return null;
+  }
+  if(locked.has(rcKey(r,c))){
+    msg.textContent="Invalid start: this room is permanently locked (φ).";
+    msg.style.color="#ff8d9a"; return null;
+  }
+  if(r===exit_pos[0]&&c===exit_pos[1]){
+    msg.textContent="Invalid start: starting position cannot be the exit.";
+    msg.style.color="#ff8d9a"; return null;
+  }
+  const g1=guard_pos(patrol1,0), g2=guard_pos(patrol2,0);
+  if((r===g1[0]&&c===g1[1])||(r===g2[0]&&c===g2[1])){
+    msg.textContent="Invalid start: a guard occupies this room at time 0.";
+    msg.style.color="#ff8d9a"; return null;
+  }
+  msg.textContent=`Valid start: (${r},${c}) at t=0.`;
+  msg.style.color="#9ff0c2";
+  return [r,c];
+}
+
+function initialize(){
+  clearTimeout(timer); timer=null;
+  const st=validateStart();
+  if(!st){ return; }
+  selectedStart=st;
+  sim=makeSim(document.getElementById("algo").value, selectedStart);
+  document.getElementById("play").textContent="▶ Play";
+  document.getElementById("finalPanel").innerHTML="";
+  clearLog();
+  addLog(`<b>Search initialized.</b> OPEN contains only the selected start state ${stateText(sim.current)}.`, "info");
+  addLog(`Algorithm: <b>${algoName(sim.algo)}</b>. State equality uses the full triple (r,c,t).`, "info");
+  addLog(`Start validation passed using the source constraints: bounds, locked room, exit, and guard occupancy at t=0.`, "ok");
+  render();
+}
+function reset(){
+  clearTimeout(timer); timer=null; sim=null;
+  document.getElementById("play").textContent="▶ Play";
+  document.getElementById("finalPanel").innerHTML="";
+  clearLog();
+  addLog("Reset. Choose an algorithm and press Initialize Search.", "info");
+  renderEmpty();
+}
+function algoName(a){
+  return a==="BFS"?"BFS — FIFO Queue":a==="DFS"?"DFS — LIFO Stack, MAX_DEPTH = 30":"Best First Search — lowest h first";
+}
+
+/* ============================================================
+   5. UI RENDERING — derived only from current live search data
+   ============================================================ */
+function renderEmpty(){
+  renderGrid(null);
+  document.getElementById("open").innerHTML="";
+  document.getElementById("closed").innerHTML="";
+  document.getElementById("current").textContent=stateText([selectedStart[0],selectedStart[1],0]);
+  document.getElementById("time").textContent="0";
+  document.getElementById("g1").textContent=fmtRC(guard_pos(patrol1,0));
+  document.getElementById("g2").textContent=fmtRC(guard_pos(patrol2,0));
+  document.getElementById("goal").textContent="GoalTest: —";
+  document.getElementById("mExpanded").textContent="0";
+  document.getElementById("mOpen").textContent="0";
+  document.getElementById("mClosed").textContent="0";
+  document.getElementById("mMax").textContent="1";
+  document.getElementById("openTitle").textContent="OPEN";
+}
+function render(){
+  if(!sim){renderEmpty();return;}
+  renderGrid(sim);
+  const N=sim.current;
+  document.getElementById("current").textContent=stateText(N);
+  document.getElementById("time").textContent=N[2];
+  document.getElementById("g1").textContent=fmtRC(guard_pos(patrol1,N[2]));
+  document.getElementById("g2").textContent=fmtRC(guard_pos(patrol2,N[2]));
+  document.getElementById("mExpanded").textContent=sim.expanded;
+  document.getElementById("mOpen").textContent=sim.open.length;
+  document.getElementById("mClosed").textContent=sim.closed.length;
+  document.getElementById("mMax").textContent=sim.maxOpen;
+
+  const gt=sim.goal===null?"GoalTest: —":`GoalTest: ${sim.goal ? "True" : "False"}`;
+  const goal=document.getElementById("goal"); goal.textContent=gt; goal.className="section goal"+(sim.goal?" true":"");
+
+  const title=document.getElementById("openTitle");
+  title.textContent=sim.algo==="BFS"?"QUEUE (front → rear)":sim.algo==="DFS"?"STACK (top → bottom)":"OPEN (lowest h first)";
+  document.getElementById("open").innerHTML=sim.open.map((p,i)=>{
+    const cls=i===0?(sim.algo==="DFS"?"top":"front"):"";
+    const hv=sim.algo==="BEST"?`<span class="h">h=${p.h}</span>`:"";
+    return `<div class="item ${cls}"><span>${i===0?"▶ ":""}${stateText(p.node)}</span>${hv}</div>`;
+  }).join("") || `<div class="small">OPEN is empty.</div>`;
+
+  document.getElementById("closed").innerHTML=sim.closed.map((p)=>{
+    const hv=sim.algo==="BEST"?` <span class="h">h=${p.h}</span>`:"";
+    return `<div class="item"><span>${stateText(p.node)}</span>${hv}</div>`;
+  }).join("") || `<div class="small">CLOSED is empty.</div>`;
+
+  if(sim.expandedState!==null && !sim.goal) renderStepLog();
+  if(sim.done && sim.path) renderFinal();
+}
+
+function renderGrid(s){
+  const el=document.getElementById("grid");
+  const cur=s ? s.current : [selectedStart[0],selectedStart[1],0];
+  const t=cur[2];
+  const g1=guard_pos(patrol1,t), g2=guard_pos(patrol2,t);
+  const childSet=new Set((s?s.lastAccepted:[]).map(x=>rcKey(x[0],x[1])));
+  const pathSet=new Set((s&&s.path?s.path:[]).map(x=>rcKey(x[0],x[1])));
+  el.innerHTML="";
+  for(let r=1;r<=10;r++){
+    for(let c=1;c<=10;c++){
+      const d=document.createElement("div");
+      d.className="cell";
+      const k=rcKey(r,c);
+      if(locked.has(k)) d.classList.add("locked");
+      else if(guard_free.has(k)) d.classList.add("free");
+      if(r===10&&c===10)d.classList.add("exit");
+      if(r===selectedStart[0]&&c===selectedStart[1])d.classList.add("start");
+      if(s && s.expandedState && r===s.expandedState[0]&&c===s.expandedState[1])d.classList.add("expanded");
+      if(childSet.has(k))d.classList.add("child");
+      if(pathSet.has(k))d.classList.add("path");
+      d.innerHTML=`<span class="coord">${r},${c}</span>${r===10&&c===10?"E":locked.has(k)?"φ":guard_free.has(k)?"#":"."}`;
+      if(r===cur[0]&&c===cur[1]){
+        d.classList.add("current");
+        d.innerHTML+=`<span class="person">🧑</span>`;
+      }
+      if(r===g1[0]&&c===g1[1])d.innerHTML+=`<span class="guard">🔴1</span>`;
+      if(r===g2[0]&&c===g2[1])d.innerHTML+=`<span class="guard">🔴2</span>`;
+      el.appendChild(d);
+    }
+  }
+}
+function fmtRC(p){return `(${p[0]},${p[1]})`;}
+
+function renderStepLog(){
+  const N=sim.expandedState;
+  let html="";
+  html+=`<div class="logline info"><b>Selected from ${sim.algo==="BFS"?"QUEUE front":sim.algo==="DFS"?"STACK top":"OPEN head"}:</b> <span class="state">${stateText(N)}</span>${sim.algo==="BEST"?` · h=${h(N)}`:""}</div>`;
+  html+=`<div class="logline"><b>GoalTest:</b> False — node is expanded and moved to CLOSED.</div>`;
+  html+=`<div class="logline"><b>MoveGen:</b> actions tried in exact order <span class="mono">RIGHT, DOWN, LEFT, UP, WAIT</span>${N[2]>=MAX_DEPTH?`<br><span style="color:#ffcf66">MAX_DEPTH cutoff: t=${N[2]} ≥ ${MAX_DEPTH}; source returns no children.</span>`:""}</div>`;
+  html+=`<div class="logline"><b>Generated legal children:</b><div class="chips">`;
+  for(const x of sim.lastActions){
+    if(x.child) html+=`<span class="chip gen">${x.action} → ${stateText(x.child)}</span>`;
+    else html+=`<span class="chip reject">${x.action} → illegal</span>`;
+  }
+  html+=`</div></div>`;
+  html+=`<div class="logline"><b>RemoveSeen:</b><br><span style="color:#9ff0c2">Accepted:</span> <div class="chips">`;
+  for(const x of sim.lastAccepted) html+=`<span class="chip accept">${stateText(x)}</span>`;
+  html+=`</div><span style="color:#ff9aa5">Rejected:</span><div class="chips">`;
+  for(const x of sim.lastRejected) html+=`<span class="chip reject">${stateText(x)}</span>`;
+  if(!sim.lastRejected.length)html+=`<span class="small">none</span>`;
+  html+=`</div></div>`;
+
+  if(sim.algo==="DFS"){
+    html+=`<div class="logline"><b>OPEN update:</b> new accepted pairs are placed at the <b>head</b> of the stack; the old head is removed.</div>`;
+  }else if(sim.algo==="BFS"){
+    html+=`<div class="logline"><b>OPEN update:</b> the old head is removed and new accepted pairs are appended at the <b>rear</b> of the FIFO queue.</div>`;
+  }else{
+    html+=`<div class="logline"><b>OPEN update:</b> new pairs are sorted by <b>h ascending</b> and merged with the already sorted remainder. Lowest h stays at the head.</div>`;
+  }
+  html+=`<div class="logline"><b>Next selected state:</b> ${sim.open.length?`<span class="state">${stateText(sim.open[0].node)}</span>`:"OPEN empty"}</div>`;
+  document.getElementById("log").innerHTML=html;
+}
+
+function renderFinal(){
+  const p=sim.path;
+  const actions=[];
+  for(let i=1;i<p.length;i++){
+    const dr=p[i][0]-p[i-1][0], dc=p[i][1]-p[i-1][1];
+    actions.push(dr===-1?"UP":dr===1?"DOWN":dc===-1?"LEFT":dc===1?"RIGHT":"WAIT");
+  }
+  const hp=sim.algo==="BEST";
+  let html=`<div class="panel final"><h3>🎯 Goal Reached</h3>
+    <div><b>GoalTest(${stateText(p[p.length-1])}) = True</b>. Search stopped and only now reconstructed the discovered parent chain.</div>
+    <div class="section small">States: ${p.length} · Actions: ${actions.length} · Nodes expanded: ${sim.expanded} · Max OPEN: ${sim.maxOpen} · CLOSED: ${sim.closed.length}</div>
+    <div class="section"><b>Discovered state sequence</b><div class="pathrow">`;
+  p.forEach((s,i)=>{html+=`<span class="chip">${stateText(s)}</span>${i<p.length-1?`<span class="arrow">→</span>`:""}`});
+  html+=`</div></div><div class="section"><b>Action sequence</b><div class="pathrow">`;
+  actions.forEach((a,i)=>{html+=`<span class="chip">${i+1}. ${a}</span>`});
+  html+=`</div></div>
+    <div class="note">The path above was not used to drive the search. It was reconstructed from the parent links attached to states actually selected/closed by ${algoName(sim.algo)}.</div>
+  </div>`;
+  document.getElementById("finalPanel").innerHTML=html;
+}
+
+function addLog(html,cls=""){
+  const log=document.getElementById("log");
+  log.innerHTML+=`<div class="logline ${cls}">${html}</div>`;
+  log.scrollTop=log.scrollHeight;
+}
+function clearLog(){document.getElementById("log").innerHTML="";}
+
+document.getElementById("init").onclick=initialize;
+document.getElementById("step").onclick=()=>{
+  if(!sim){
+    initialize();
+    if(!sim) return;
+  }
+  stepOnce();
+};
+document.getElementById("play").onclick=playToggle;
+document.getElementById("reset").onclick=reset;
+document.getElementById("speed").oninput=e=>document.getElementById("speedLabel").textContent=e.target.value;
+document.getElementById("algo").onchange=()=>{ if(sim && !sim.done) initialize(); };
+document.getElementById("startRow").oninput=()=>{ if(!sim) validateStart(); };
+document.getElementById("startCol").oninput=()=>{ if(!sim) validateStart(); };
+
+reset();
+validateStart();
+</script>
+</body>
+</html>
